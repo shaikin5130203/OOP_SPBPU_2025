@@ -1,8 +1,11 @@
-#include <iostream>
-#include "menu.h"
-using namespace std;
-int main(){
-    cout<< "        PHONE BOOK\n";
-    menu();
-    return 0;
+#include "mainwindow.h"
+#include <QApplication>
+
+int main(int argc, char *argv[])
+{
+    QApplication a(argc, argv);
+    MainWindow w;
+    w.setWindowTitle("Телефонная книга");
+    w.show();
+    return a.exec();
 }

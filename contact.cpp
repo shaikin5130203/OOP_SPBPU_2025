@@ -1,102 +1,215 @@
-#include <iostream>
-#include "checker.h"
-#include <vector>
 #include "contact.h"
-using namespace std;
-extern vector<string> unique_numbers;
-extern vector<string> unique_emails;
-void contact::clear_numbers(){
-numbers.clear();
-return;
+#include "checker.h"
+#include <QMessageBox>
+
+Contact::Contact()
+    : m_id(-1) // -1 означает, что контакт еще не сохранен в БД
+{}
+
+Contact::Contact(const QString &name, const QString &surname,
+                 const QString &patronymic, const QString &email,
+                 const QDate &birthDate, const QStringList &phones)
+    : m_id(-1), m_name(name), m_surname(surname), m_patronymic(patronymic),
+      m_email(email), m_birthDate(birthDate), m_phones(phones)
+{}
+
+bool Contact::setName(const QString &name)
+{
+    if (!Checker::validateName(name)) {
+        return false;
+    }
+    m_name = Checker::formatName(name);
+    return true;
 }
-contact::~contact(){
-name ="";
-surname="";
-patr="";
-email="";
-birth_date = "";
-numbers.clear();
-return;
+
+bool Contact::setSurname(const QString &surname)
+{
+    if (!Checker::validateSurname(surname)) {
+        return false;
+    }
+    m_surname = Checker::formatSurname(surname);
+    return true;
 }
-bool contact::operator==(const contact& A){
-return (name == A.name && surname == A.surname && patr == A.patr && birth_date == A.birth_date && email == A.email);
+
+bool Contact::setPatronymic(const QString &patronymic)
+{
+    if (!Checker::validatePatronymic(patronymic)) {
+        return false;
+    }
+    m_patronymic = Checker::formatPatronymic(patronymic);
+    return true;
 }
-string contact::get_name(){
-return name;
+
+bool Contact::setEmail(const QString &email)
+{
+    if (!Checker::validateEmail(email)) {
+        return false;
+    }
+    m_email = Checker::formatEmail(email);
+    return true;
 }
-bool contact::set_name(string name){
-if (trim_name(name)){
-    this->name = name;
-    return 1;
-} return 0;
+
+bool Contact::setBirthDate(const QDate &date)
+{
+    if (!date.isValid() || date > QDate::currentDate()) {
+        return false;
+    }
+    m_birthDate = date;
+    return true;
 }
- string contact::get_surname(){
-return surname;
+
+bool Contact::setBirthDate(const QString &date)
+{
+    if (!Checker::validateDate(date)) {
+        return false;
+    }
+
+    QStringList parts = date.split('.');
+    if (parts.size() != 3) return false;
+
+    int day = parts[0].toInt();
+    int month = parts[1].toInt();
+    int year = parts[2].toInt();
+
+    QDate d(year, month, day);
+    if (!d.isValid()) return false;
+
+    m_birthDate = d;
+    return true;
 }
-bool contact::set_surname(string surname){
-if (trim_name(surname)){
-    this->surname = surname;
-    return 1;
-} return 0;
+
+bool Contact::addPhone(const QString &phone)
+{
+    if (!Checker::validatePhone(phone)) {
+        return false;
+    }
+
+    QString formattedPhone = Checker::formatPhone(phone);
+    if (m_phones.contains(formattedPhone)) {
+        return false;
+    }
+
+    m_phones.append(formattedPhone);
+    return true;
 }
-string contact::get_patr(){
-return patr;
+
+void Contact::removePhone(int index)
+{
+    if (index >= 0 && index < m_phones.size()) {
+        m_phones.removeAt(index);
+    }
 }
-bool contact::set_patr(string patr){
-if (trim_patronymic(patr)){
-    this->patr = patr;
-    return 1;
-} return 0;
+
+bool Contact::operator<(const Contact& other) const
+{
+    return m_id < other.m_id;
 }
-string contact::get_email(){
-return email;
+
+bool Contact::operator>(const Contact& other) const
+{
+    return m_id > other.m_id;
 }
-bool contact::set_email(string email){
-    if (trim_email(email)){
-        for (long long unsigned int i = 0; i < unique_emails.size(); i++){
-            if(email == unique_emails[i]){
-                cout << "Email already exists\n";
-                return 0;
-            }
+
+bool Contact::compareById(const Contact& a, const Contact& b, bool ascending)
+{
+    if (ascending) {
+        return a.m_id < b.m_id;
+    } else {
+        return a.m_id > b.m_id;
+    }
+}
+
+bool Contact::compareBySurname(const Contact& a, const Contact& b, bool ascending)
+{
+    int cmp = QString::compare(a.m_surname, b.m_surname, Qt::CaseInsensitive);
+    if (cmp == 0) {
+        // Если фамилии одинаковые, сортируем по имени
+        cmp = QString::compare(a.m_name, b.m_name, Qt::CaseInsensitive);
+        if (cmp == 0) {
+            // Если имена одинаковые, сортируем по ID
+            return Contact::compareById(a, b, ascending);
         }
-        unique_emails.push_back(email);
-        this->email = email;
-        return 1;
-} return 0;
+    }
+
+    if (ascending) {
+        return cmp < 0;
+    } else {
+        return cmp > 0;
+    }
 }
-string contact::get_birth_date(){
-return birth_date;
-}
-bool contact::set_birth_date(string birth_date){
-    if (check_date(birth_date)){
-    this->birth_date = birth_date;
-    return 1;
-} return 0;
-}
-vector<string> contact::get_numbers(){
-return numbers;
-}
-bool contact::add_number(string number){
-if (trim_number(number)){
-    for (long long unsigned int i = 0; i < unique_numbers.size(); i++){
-        if (trim_unique_number(number) == unique_numbers[i]){
-            cout << "Number already exists\n";
-            return 0;
+
+bool Contact::compareByName(const Contact& a, const Contact& b, bool ascending)
+{
+    int cmp = QString::compare(a.m_name, b.m_name, Qt::CaseInsensitive);
+    if (cmp == 0) {
+        // Если имена одинаковые, сортируем по фамилии
+        cmp = QString::compare(a.m_surname, b.m_surname, Qt::CaseInsensitive);
+        if (cmp == 0) {
+            return Contact::compareById(a, b, ascending);
         }
-        }
-    unique_numbers.push_back(trim_unique_number(number));
-    numbers.push_back(number);
-    return 1;
-} return 0;
+    }
+
+    if (ascending) {
+        return cmp < 0;
+    } else {
+        return cmp > 0;
+    }
 }
-void contact::set_numbers(vector<string> numbers){
-this->numbers = numbers;
-return;
+
+bool Contact::compareByPatronymic(const Contact& a, const Contact& b, bool ascending)
+{
+    int cmp = QString::compare(a.m_patronymic, b.m_patronymic, Qt::CaseInsensitive);
+    if (cmp == 0) {
+        return Contact::compareBySurname(a, b, ascending);
+    }
+
+    if (ascending) {
+        return cmp < 0;
+    } else {
+        return cmp > 0;
+    }
 }
-void contact::print_contact(){
-cout << surname <<" "<<name<<" "<<patr<<" "<<birth_date<<" "<<email<<"\nNumbers: \n";
-for (long long unsigned int i = 0; i < numbers.size(); i++){
-    cout << numbers[i]<<"\n";
+
+bool Contact::compareByEmail(const Contact& a, const Contact& b, bool ascending)
+{
+    int cmp = QString::compare(a.m_email, b.m_email, Qt::CaseInsensitive);
+    if (cmp == 0) {
+        return Contact::compareById(a, b, ascending);
+    }
+
+    if (ascending) {
+        return cmp < 0;
+    } else {
+        return cmp > 0;
+    }
 }
-return;
+
+bool Contact::compareByBirthDate(const Contact& a, const Contact& b, bool ascending)
+{
+    if (a.m_birthDate == b.m_birthDate) {
+        return Contact::compareBySurname(a, b, ascending);
+    }
+
+    if (ascending) {
+        return a.m_birthDate < b.m_birthDate;
+    } else {
+        return a.m_birthDate > b.m_birthDate;
+    }
+}
+
+bool Contact::compareByPhones(const Contact& a, const Contact& b, bool ascending)
+{
+    QString phoneA = a.m_phones.isEmpty() ? "" : a.m_phones.first();
+    QString phoneB = b.m_phones.isEmpty() ? "" : b.m_phones.first();
+
+    int cmp = QString::compare(phoneA, phoneB, Qt::CaseInsensitive);
+    if (cmp == 0) {
+        return Contact::compareBySurname(a, b, ascending);
+    }
+
+    if (ascending) {
+        return cmp < 0;
+    } else {
+        return cmp > 0;
+    }
 }
